@@ -1,13 +1,13 @@
-import json
-
 from app.ingestion.loader import load_documents
 from app.ingestion.chunker import chunk_document
+from app.retrieval.indexer import index_chunks
+from app.retrieval.retriever import query_knowledge_base
 
 
 def main():
     docs = load_documents("data/raw_docs")
-    all_chunks = []
 
+    all_chunks = []
     for doc in docs:
         chunks = chunk_document(doc["content"])
 
@@ -21,18 +21,25 @@ def main():
             })
 
     print(f"Loaded {len(docs)} documents")
-    print(f"Generated {len(all_chunks)} chunks\n")
+    print(f"Generated {len(all_chunks)} chunks")
 
-    for c in all_chunks[:5]:
+    # Index into vector DB
+    print("\nIndexing chunks...")
+    index_chunks(all_chunks)
+
+    # Test query
+    query = "What are the requirements for certified datasets?"
+    print(f"\nQuery: {query}")
+
+    results = query_knowledge_base(query)
+
+    print("\nTop Results:\n")
+
+    for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
         print("-----")
-        print(c["metadata"])
-        print(c["chunk"])
+        print(meta)
+        print(doc)
         print()
-
-    with open("data/processed_docs/chunks.json", "w", encoding="utf-8") as f:
-        json.dump(all_chunks, f, indent=2)
-
-    print("Saved chunk output to data/processed_docs/chunks.json")
 
 
 if __name__ == "__main__":
