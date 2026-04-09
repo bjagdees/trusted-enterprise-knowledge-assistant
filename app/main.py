@@ -6,8 +6,12 @@ from app.generation.answer_generator import generate_answer
 
 
 def main():
+    print("=== Trusted Enterprise Knowledge Assistant ===\n")
+
+    # Phase 1: Load documents
     docs = load_documents("data/raw_docs")
 
+    # Phase 1: Chunk documents with metadata
     all_chunks = []
     for doc in docs:
         chunks = chunk_document(doc["content"])
@@ -17,37 +21,45 @@ def main():
                 "chunk": chunk,
                 "metadata": {
                     **doc["metadata"],
-                    "chunk_id": idx
+                    "chunk_id": f"{doc['metadata'].get('source', 'doc')}_chunk_{idx}"
                 }
             })
 
-    print(f"Loaded {len(docs)} documents")
-    print(f"Generated {len(all_chunks)} chunks")
+    print(f"[Ingestion] Loaded {len(docs)} documents")
+    print(f"[Chunking] Generated {len(all_chunks)} chunks")
 
-    print("\nIndexing chunks...")
+    # Phase 2: Index chunks
+    print("\n[Indexing] Indexing chunks...")
     index_chunks(all_chunks)
 
-    query = "What are the requirements for certified datasets?"
-    print(f"\nQuery: {query}")
+    # User query
+    query = input("\nAsk a question: ").strip()
+    print(f"\n[Query] {query}")
 
-    results = query_knowledge_base(query)
+    # Phase 2: Retrieve relevant chunks
+    retrieved_docs = query_knowledge_base(query)
 
-    retrieved_chunks = results["documents"][0]
-    metadatas = results["metadatas"][0]
+    print("\n=== Retrieved Evidence ===\n")
 
-    print("\nRetrieved Context:\n")
+    if not retrieved_docs:
+        print("No relevant evidence retrieved.\n")
+    else:
+        for i, item in enumerate(retrieved_docs, start=1):
+            text = item.get("text", "")
+            metadata = item.get("metadata", {})
 
-    for doc, meta in zip(retrieved_chunks, metadatas):
-        print("-----")
-        print(meta)
-        print(doc)
-        print()
+            print("-----")
+            print(f"[Source {i}]")
+            print(f"Document: {metadata.get('source', 'unknown_document')}")
+            print(f"Chunk ID: {metadata.get('chunk_id', 'unknown_chunk')}")
+            print(text)
+            print()
 
-    print("\nGenerating Answer...\n")
+    # Phase 3 + 4: Generate grounded answer
+    print("\n[Generation] Generating grounded answer...\n")
+    answer = generate_answer(query, retrieved_docs)
 
-    answer = generate_answer(query, retrieved_chunks)
-
-    print("Final Answer:\n")
+    print("=== Final Answer ===\n")
     print(answer)
 
 
